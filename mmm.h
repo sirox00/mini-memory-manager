@@ -49,8 +49,8 @@ MMM_DEF void mmm_pool_free(mmm_pool *pool, void *allocation);
 MMM_DEF void mmm_set_tag(void *allocation, uint64_t new_tag);
 MMM_DEF void mmm_add_managed_ptr(void *allocation, void **p_ptr);
 
-inline mmm_memblock *mmm_ptr_to_block(void *ptr) { return (mmm_memblock *)(ptr - sizeof(mmm_memblock)); }
-inline void *mmm_block_to_ptr(mmm_memblock *p_block) { return (void *)(p_block) + sizeof(mmm_memblock); }
+static inline mmm_memblock *mmm_ptr_to_block(void *ptr) { return (mmm_memblock *)(ptr - sizeof(mmm_memblock)); }
+static inline void *mmm_block_to_ptr(mmm_memblock *p_block) { return (void *)(p_block) + sizeof(mmm_memblock); }
 
 #ifdef MMM_IMPLEMENTATION
 
