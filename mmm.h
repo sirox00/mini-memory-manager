@@ -75,7 +75,6 @@ static inline uint64_t mmm_aligned_memblock_size(mmm_pool *p_pool) {
 static inline mmm_memblock *mmm_ptr_to_block(mmm_pool *p_pool, void *ptr) { return (mmm_memblock *)(ptr - mmm_aligned_memblock_size(p_pool)); }
 static inline void *mmm_block_to_ptr(mmm_pool *p_pool, mmm_memblock *p_block) { return (void *)(p_block) + mmm_aligned_memblock_size(p_pool); }
 
-#define MMM_IMPLEMENTATION
 #ifdef MMM_IMPLEMENTATION
 
 MMM_DEF void *mmm_aligned_alloc(uint64_t size, uint64_t alignment) {
