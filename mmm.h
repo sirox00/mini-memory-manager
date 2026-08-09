@@ -21,8 +21,8 @@ typedef struct mmm_memblock_s {
     struct mmm_memblock_s *next;
 
     uint64_t size;
-    int64_t tag;       // tags are entirely user defined and are supposed to be used for data labeling for purging
-    void **thisPtrs[]; // values pointed to by this would be updated on mmm_pool_grow, can be added with mmm_register_managed_ptr
+    int64_t tag;       // tags are entirely user defined and are supposed to be used for data labeling for purging, 0 is reserved for a free block
+    void **this_ptrs[]; // values pointed to by this would be updated on mmm_pool_grow, can be added with mmm_register_managed_ptr
 } mmm_memblock;
 
 typedef struct {
