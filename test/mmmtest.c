@@ -46,7 +46,7 @@ int32_t main() {
     *b = 5;
     *c = 50.0;
 
-    printf("Allocated: a=%I64d, b=%I32d=%p, c=%lf\n", *a, *b, b, *c);
+    printf("Allocated: a=%I64d, b=%I32d, c=%lf\n", *a, *b, *c);
     verify_pool(&pool);
 
     mmm_add_managed_ptr(&pool, b, (void **)&b);
