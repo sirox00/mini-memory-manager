@@ -87,7 +87,7 @@ MMM_DEF void *mmm_aligned_alloc(uint64_t size, uint64_t alignment) {
     //
     // file an issue on github, if you encounter problems with it
     return aligned_alloc(alignment, size);
-#endif 
+#endif
 }
 
 MMM_DEF void mmm_aligned_free(void *ptr) {
