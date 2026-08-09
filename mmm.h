@@ -11,9 +11,8 @@
 // any of the allocation callbacks can be NULL, default one is used in that case
 typedef struct {
     void *p_user_data;
-    void *(*alloc)(uint64_t size, void *p_user_data);                  // default: malloc
-    void *(*realloc)(void *ptr, uint64_t new_size, void *p_user_data); // default: if alloc is non-NULL, then alloc + memcpy, realloc otherwise
-    void (*free)(void *ptr, void *p_user_data);                        // default: free
+    void *(*alloc)(uint64_t size, void *p_user_data); // default: malloc
+    void (*free)(void *ptr, void *p_user_data);       // default: free
 } mmm_allocation_callbacks;
 
 typedef struct mmm_memblock_s {
@@ -21,7 +20,7 @@ typedef struct mmm_memblock_s {
     struct mmm_memblock_s *next;
 
     uint64_t size;
-    int64_t tag;       // tags are entirely user defined and are supposed to be used for data labeling for purging, 0 is reserved for a free block
+    int64_t tag;        // tags are entirely user defined and are supposed to be used for data labeling for purging, 0 is reserved for a free block
     void **this_ptrs[]; // values pointed to by this would be updated on mmm_pool_grow, can be added with mmm_register_managed_ptr
 } mmm_memblock;
 
@@ -43,7 +42,6 @@ MMM_DEF void mmm_pool_purge(mmm_pool *pool, uint32_t (*decider_func)(mmm_membloc
 MMM_DEF void mmm_pool_uninit(mmm_pool *pool, mmm_allocation_callbacks allocation_callbacks);
 
 MMM_DEF void *mmm_pool_alloc(mmm_pool *pool, uint64_t size, uint64_t tag);
-MMM_DEF void *mmm_pool_realloc(mmm_pool *pool, void *allocation, uint64_t new_size);
 MMM_DEF void mmm_pool_free(mmm_pool *pool, void *allocation);
 
 MMM_DEF void mmm_set_tag(void *allocation, uint64_t new_tag);
