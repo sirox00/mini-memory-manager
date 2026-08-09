@@ -8,6 +8,10 @@
 #ifndef MMM_H
 #define MMM_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <inttypes.h>
 #include <malloc.h>
 #include <stdint.h>
@@ -295,6 +299,10 @@ MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_pt
         }
 }
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 #endif
 
