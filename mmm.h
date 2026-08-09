@@ -110,6 +110,8 @@ MMM_DEF void mmm_pool_grow_preallocated(mmm_pool *pool, uint64_t new_size, void 
     } else {
         mmm_memblock *new_block = pool->mem + old_size;
 
+        last_block->next = new_block;
+
         new_block->prev = last_block;
         new_block->next = NULL;
         new_block->size = new_size - old_size;
@@ -121,10 +123,10 @@ MMM_DEF void mmm_pool_grow_preallocated(mmm_pool *pool, uint64_t new_size, void 
     pool->first_block = ((void *)pool->first_block - old_mem) + pool->mem;
 
     for (mmm_memblock *p_block = pool->first_block; p_block != NULL; p_block = p_block->next) {
-        for (uint64_t i = 0; i < pool->managed_ptrs_per_block; i++) {
-            if (p_block->prev != NULL) p_block->prev = ((void *)p_block->prev - old_mem) + pool->mem;
-            if (p_block->next != NULL) p_block->next = ((void *)p_block->prev - old_mem) + pool->mem;
+        if (p_block->prev != NULL) p_block->prev = ((void *)p_block->prev - old_mem) + pool->mem;
+        if (p_block->next != NULL) p_block->next = ((void *)p_block->prev - old_mem) + pool->mem;
 
+        for (uint64_t i = 0; i < pool->managed_ptrs_per_block; i++) {
             if (p_block->this_ptrs[i] != NULL) *(p_block->this_ptrs[i]) = p_block;
         }
     }
