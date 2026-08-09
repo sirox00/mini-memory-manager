@@ -10,7 +10,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #include <inttypes.h>
 #include <malloc.h>
@@ -20,7 +20,7 @@ extern "C" {
 
 #ifndef MMM_DEF
 #define MMM_DEF
-#endif
+#endif /* MMM_DEF */
 
 // any of the allocation callbacks can be NULL, default one is used in that case
 typedef struct {
@@ -87,7 +87,7 @@ MMM_DEF void *mmm_aligned_alloc(uint64_t size, uint64_t alignment) {
     //
     // file an issue on github, if you encounter problems with it
     return aligned_alloc(alignment, size);
-#endif
+#endif 
 }
 
 MMM_DEF void mmm_aligned_free(void *ptr) {
@@ -298,12 +298,12 @@ MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_pt
         }
 }
 
-#endif
+#endif /* MMM_IMPLEMENTATION */
 
 #ifdef __cplusplus
 }
-#endif
-#endif
+#endif /* __cplusplus */
+#endif /* MMM_H */
 
 /*
     This is free and unencumbered software released into the public domain.
