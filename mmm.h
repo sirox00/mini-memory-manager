@@ -37,8 +37,8 @@ typedef struct mmm_memblock_s {
     struct mmm_memblock_s *p_next;
 
     uint64_t size;
-    int64_t tag;        // tags are entirely user defined and are supposed to be used for data labeling for purging, 0 is reserved for a free block
-    void **this_ptrs[]; // values pointed to by this would be updated on mmm_pool_grow, can be added with mmm_register_managed_ptr
+    int64_t tag;           // tags are entirely user defined and are supposed to be used for data labeling for purging, 0 is reserved for a free block
+    void **managed_ptrs[]; // values pointed to by this would be updated on mmm_pool_grow, can be added with mmm_register_managed_ptr
 } mmm_memblock;
 
 typedef struct {
@@ -134,7 +134,7 @@ MMM_DEF void mmm_pool_init_preallocated(uint64_t size, uint64_t alignment, uint6
     p_block->size = p_pool->size - mmm_aligned_memblock_size(p_pool);
     p_block->tag = 0;
     for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++)
-        p_block->this_ptrs[i] = NULL;
+        p_block->managed_ptrs[i] = NULL;
 
     p_pool->p_first_block = p_block;
 }
@@ -187,7 +187,7 @@ MMM_DEF void mmm_pool_grow_preallocated(mmm_pool *p_pool, uint64_t new_size, voi
         new_block->size = new_size - old_size;
         new_block->tag = 0;
         for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++)
-            new_block->this_ptrs[i] = NULL;
+            new_block->managed_ptrs[i] = NULL;
     }
 
     p_pool->p_first_block = ((void *)p_pool->p_first_block - old_mem) + p_pool->mem;
@@ -197,7 +197,7 @@ MMM_DEF void mmm_pool_grow_preallocated(mmm_pool *p_pool, uint64_t new_size, voi
         if (p_block->p_next != NULL) p_block->p_next = ((void *)p_block->p_next - old_mem) + p_pool->mem;
 
         for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++) {
-            if (p_block->this_ptrs[i] != NULL) *(p_block->this_ptrs[i]) = mmm_block_to_ptr(p_pool, p_block);
+            if (p_block->managed_ptrs[i] != NULL) *(p_block->managed_ptrs[i]) = mmm_block_to_ptr(p_pool, p_block);
         }
     }
 }
@@ -244,7 +244,7 @@ MMM_DEF void *mmm_pool_alloc(mmm_pool *p_pool, uint64_t size, uint64_t tag) {
         p_next_block->size = p_found_block->size - aligned_size - mmm_aligned_memblock_size(p_pool);
         p_next_block->tag = 0;
         for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++)
-            p_next_block->this_ptrs[i] = NULL;
+            p_next_block->managed_ptrs[i] = NULL;
 
         if (p_found_block->p_next != NULL) {
             p_next_block->p_next = p_found_block->p_next;
@@ -301,8 +301,8 @@ MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation) {
 MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr) {
     mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
     for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++)
-        if (p_block->this_ptrs[i] == NULL) {
-            p_block->this_ptrs[i] = p_ptr;
+        if (p_block->managed_ptrs[i] == NULL) {
+            p_block->managed_ptrs[i] = p_ptr;
             break;
         }
 }
