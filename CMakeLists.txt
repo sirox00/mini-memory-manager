@@ -4,7 +4,7 @@ project(mmm LANGUAGES C VERSION 1.0)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-option(MMM_BUILD_TEST "if on, build the test" ${PROJECT_IS_TOP_LEVEL})
+option(MMM_BUILD_TEST "build the test for mmm" ${PROJECT_IS_TOP_LEVEL})
 
 if(WIN32)
     add_compile_definitions(_CRT_SECURE_NO_DEPRECATE)
