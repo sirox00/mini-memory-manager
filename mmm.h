@@ -1,8 +1,11 @@
-/* mmm.h - mini memory manager in C
+/* mmm.h - mini memory manager in C that is inspired by the zone allocator from Doom
  * see LICENSE or end of this file for the licensing
  *
  * Add the next line before including mmm.h in *one* of your source files to create the implementation:
  * #define MMM_IMPLEMENTATION
+ *
+ * see declarations below for documentation
+ * see test/mmmtest.c and README.md for examples of the API
  */
 
 #ifndef MMM_H
@@ -63,6 +66,7 @@ MMM_DEF void *mmm_pool_alloc(mmm_pool *p_pool, uint64_t size, uint64_t tag);
 MMM_DEF void mmm_pool_free(mmm_pool *p_pool, void *allocation);
 
 MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, uint64_t new_tag);
+MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation);
 MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr);
 
 static inline uint32_t mmm_is_power_of_2(uint64_t n) { return (n != 0) && ((n & (n - 1)) == 0); }
@@ -287,6 +291,11 @@ MMM_DEF void mmm_pool_free(mmm_pool *p_pool, void *allocation) {
 MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, uint64_t new_tag) {
     mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
     p_block->tag = new_tag;
+}
+
+MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation) {
+    mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
+    return p_block->tag;
 }
 
 MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr) {
