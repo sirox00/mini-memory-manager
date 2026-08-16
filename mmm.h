@@ -68,6 +68,7 @@ MMM_DEF void mmm_pool_free(mmm_pool *p_pool, void *allocation);
 MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, uint64_t new_tag);
 MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation);
 MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr);
+MMM_DEF void mmm_set_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr, uint64_t idx);
 
 static inline uint32_t mmm_is_power_of_2(uint64_t n) { return (n != 0) && ((n & (n - 1)) == 0); }
 static inline uint32_t mmm_block_is_free(mmm_memblock *p_block) { return p_block->tag == 0; }
@@ -305,6 +306,11 @@ MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_pt
             p_block->managed_ptrs[i] = p_ptr;
             break;
         }
+}
+
+MMM_DEF void mmm_set_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr, uint64_t idx) {
+    mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
+    p_block->managed_ptrs[idx] = p_ptr;
 }
 
 #endif /* MMM_IMPLEMENTATION */
