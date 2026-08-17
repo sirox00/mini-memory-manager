@@ -3,6 +3,8 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 #include <stdio.h>
 
 void verify_pool(mmm_pool *p_pool) {
@@ -33,7 +35,7 @@ uint32_t purge_decider(mmm_memblock *p_block, void *p_user_data) {
 
 int32_t main() {
     mmm_pool pool;
-    mmm_pool_init(64 * 1024, 8, 1, NULL, &pool);
+    mmm_pool_init(64 * 1024, alignof(max_align_t), 1, NULL, &pool);
     assert(pool.mem != NULL);
 
     verify_pool(&pool);
@@ -49,7 +51,7 @@ int32_t main() {
     printf("Allocated: a=%I64d, b=%I32d, c=%lf\n", *a, *b, *c);
     verify_pool(&pool);
 
-    mmm_add_managed_ptr(&pool, b, (void **)&b);
+    mmm_set_managed_ptr(&pool, b, (void **)&b, 0);
     mmm_pool_grow(&pool, 128 * 1024, NULL);
 
     printf("Grew: a=%I64d, b=%I32d, c=%lf\n", *a, *b, *c);

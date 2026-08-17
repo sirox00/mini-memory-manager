@@ -1,4 +1,4 @@
-/* mmm.h - mini memory manager in C that is inspired by the zone allocator from Doom
+/* mmm.h - mini memory manager in C11 that is inspired by the zone allocator from Doom
  * see LICENSE or end of this file for the licensing
  *
  * Add the next line before including mmm.h in *one* of your source files to create the implementation:
@@ -16,10 +16,6 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <inttypes.h>
-#include <malloc.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifndef MMM_DEF
 #define MMM_DEF
@@ -27,7 +23,7 @@ extern "C" {
 
 // any of the allocation callbacks can be NULL, default one is used in that case
 typedef struct {
-    void *p_user_data;
+    void *p_user_data;                                                    // user data that would be passed to alloc and free functions
     void *(*alloc)(uint64_t size, uint64_t alignment, void *p_user_data); // default: mmm_aligned_alloc
     void (*free)(void *ptr, void *p_user_data);                           // default: mmm_aligned_free
 } mmm_allocation_callbacks;
@@ -51,36 +47,175 @@ typedef struct {
 } mmm_pool;
 
 // memory allocation functions used internally by default
+/*!
+ * \brief allocates `size` bytes on the heap, the returned pointer would be divisible by `alignment`
+ * \param[in] size the amount of bytes to allocate, must be a multiple of `alignment`
+ * \param[in] alignment alignment of the returned pointer
+ * \return a pointer to the allocated memory
+ */
 MMM_DEF void *mmm_aligned_alloc(uint64_t size, uint64_t alignment);
+/*!
+ * \brief free memory previously allocated with mmm_aligned_alloc
+ * \param[in] a pointer to the memory to free
+ */
 MMM_DEF void mmm_aligned_free(void *ptr);
 
+/*!
+ * \brief initialize a pool with allocating its memory
+ * \param[in] size the amount of bytes this pool will hold, must be a multiple of `alignment`
+ * \param[in] alignment alignment of the pointers allocated from that pool and corresponding memblock structures, must be a power of 2
+ * \param[in] managed_ptrs_per_block the max amount of managed pointers a block in this pool can have
+ * \param[in] p_allocation_callbacks a pointer to custom allocation callbacks, can be NULL and each function pointer in it can be NULL
+ * \param[out] p_pool a pointer to the pool to initialize, `p_pool->mem` is set to NULL on error
+ */
 MMM_DEF void mmm_pool_init(uint64_t size, uint64_t alignment, uint64_t managed_ptrs_per_block, mmm_allocation_callbacks *p_allocation_callbacks, mmm_pool *p_pool);
+/*!
+ * \brief initialize a pool inside of a preallocated memory
+ * \param[in] size the amount of bytes this pool will hold, must be a multiple of `alignment`
+ * \param[in] alignment alignment of the pointers allocated from that pool and corresponding memblock structures, must be a power of 2
+ * \param[in] managed_ptrs_per_block the max amount of managed pointers a block in this pool can have
+ * \param[in] mem a pointer to the preallocated memory for the pool, must be at least `size` bytes and must be a multiple of `p_pool->alignment`
+ * \param[out] p_pool a pointer to the pool to initialize, `p_pool->mem` is set to NULL on error
+ * NOTE: you dont need to uninit a pool that does not own its memory (used with *_preallocated init and grow)
+ */
 MMM_DEF void mmm_pool_init_preallocated(uint64_t size, uint64_t alignment, uint64_t managed_ptrs_per_block, void *mem, mmm_pool *p_pool);
+/*!
+ * \brief grow a pool with allocating its new memory
+ * \param[in] p_pool a pointer to the pool to grow
+ * \param[in] new_size the new size of the pool, must be bigger than `p_pool->size` and must be a multiple of `p_pool->alignment`
+ * \param[in] p_allocation_callbacks a pointer to custom allocation callbacks, can be NULL and each function pointer in it can be NULL
+ * NOTE: calling this function invalidates all pointers to the pool memory
+ *       values of managed pointers added through mmm_add/set_managed_ptr are updated by this function for the new ones
+ */
 MMM_DEF void mmm_pool_grow(mmm_pool *p_pool, uint64_t new_size, mmm_allocation_callbacks *p_allocation_callbacks);
+/*!
+ * \brief grow a pool with allocating its new memory
+ * \param[in] p_pool a pointer to the pool to grow
+ * \param[in] new_size the new size of the pool, must be bigger than `p_pool->size` and must be a multiple of `p_pool->alignment`
+ * \param[in] new_mem a pointer to the new preallocated memory for the pool, must be at least `new_size` bytes, not overlap with the current memory of the pool and be a multiple of `p_pool->alignment`
+ * NOTE: calling this function invalidates all pointers to the pool memory
+ *       values of managed pointers added through mmm_add/set_managed_ptr are updated by this function for the new ones
+ * NOTE: you dont need to uninit a pool that does not own its memory (used with *_preallocated init and grow)
+ */
 MMM_DEF void mmm_pool_grow_preallocated(mmm_pool *p_pool, uint64_t new_size, void *new_mem);
+/*!
+ * \brief purge allocations in the pool
+ * \param[in] p_pool a pointer to the pool to purge
+ * \param[in] decider_func a function that decides if an allocation should be purged (non-zero return value - purge)
+ * \param[in] p_user_data a pointer to user data for `decider_func`
+ */
 MMM_DEF void mmm_pool_purge(mmm_pool *p_pool, uint32_t (*decider_func)(mmm_memblock *p_block, void *p_user_data), void *p_user_data);
-// you dont need to uninit the pool, if it was used only with _preallocated versions of mmm_pool_init and mmm_pool_grow
+/*!
+ * \brief uninit a pool that owns its memory (used with regular init and grow)
+ * \param[in] p_pool a pointer to the pool to uninit
+ * \param[in] p_allocation_callbacks a pointer to custom allocation callbacks, can be NULL and each function pointer in it can be NULL
+ * NOTE: you dont need to uninit a pool that does not own its memory (used with *_preallocated init and grow)
+ */
 MMM_DEF void mmm_pool_uninit(mmm_pool *p_pool, mmm_allocation_callbacks *p_allocation_callbacks);
 
+/*!
+ * \brief allocate a new memory block from the pool
+ * \param[in] p_pool a pointer to the pool in which to allocate memory
+ * \param[in] size the amount of bytes to allocate
+ * \param[in] tag a user-defined tag, 0 is reserved and will cause an error, useful for deciding which allocations to purge
+ * \return if tag is 0 or the pool does not have enough memory, NULL is returned
+ *         otherwise, a pointer to the allocated memory is returned
+ *         the pointer returned is guaranteed to be a multiple of `p_pool->alignment`
+ *         the allocation is guaranteed to be at least `size` bytes
+ */
 MMM_DEF void *mmm_pool_alloc(mmm_pool *p_pool, uint64_t size, uint64_t tag);
+/*!
+ * \brief free a memory block in the pool
+ * \param[in] p_pool a pointer to the pool in which to free memory
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ */
 MMM_DEF void mmm_pool_free(mmm_pool *p_pool, void *allocation);
 
-MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, uint64_t new_tag);
+/*!
+ * \brief set the tag of an allocation
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ * \param[in] new_tag the new tag of the allocation, 0 is reserved
+ */
+MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, int64_t new_tag);
+/*!
+ * \brief get the tag of an allocation
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ * \return the current tag of the allocation
+ */
 MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation);
-MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr);
+/*!
+ * \brief set an entry in the array of managed pointers in the memblock of an allocation with index `idx` to `p_ptr`
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ * \param[in] p_ptr NULL or a pointer to the variable that should be managed (set to the new address of the allocation after growing the pool)
+ * \param[in] idx the index in the array of managed pointers that should be set to `p_ptr`, must be less than `p_pool->managed_ptrs_per_block`
+ * NOTE: you must ensure all pointers set are valid or NULL (are skipped) before growing the pool
+ */
 MMM_DEF void mmm_set_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr, uint64_t idx);
+/*!
+ * \brief get the value of an entry in the array of managed pointers in the memblock of an allocation with index `idx`
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ * \param[in] idx the index in the array of managed pointers, must be less than `p_pool->managed_ptrs_per_block`
+ */
+MMM_DEF void **mmm_get_managed_ptr(mmm_pool *p_pool, void *allocation, uint64_t idx);
 
+/*!
+ * \brief check if `n` is a power of 2
+ * \param[in] n the number to check
+ * \return if `n` is a power of 2, 1 is returned, 0 otherwise
+ */
 static inline uint32_t mmm_is_power_of_2(uint64_t n) { return (n != 0) && ((n & (n - 1)) == 0); }
+/*!
+ * \brief check is a memblock `p_block` is free
+ * \param[in] p_block the block to check
+ * \return if `p_block` points to a free memblock, 1 is returned, 0 therwise
+ */
 static inline uint32_t mmm_block_is_free(mmm_memblock *p_block) { return p_block->tag == 0; }
+/*!
+ * \brief align `size` so that it is a multiple of `alignment`
+ * \param[in] size the unaligned size
+ * \param[in] alignment the alignment to be applied to `size`
+ * \return aligned `size`, it is guaranteed to be more than or equal to `size` and to be a multiple of `alignment`
+ */
 static inline uint64_t mmm_align_size(uint64_t size, uint64_t alignment) { return (size + alignment - 1) & ~(alignment - 1); }
+/*!
+ * \brief align `ptr` so that it is a multiple of `alignment`
+ * \param[in] ptr the unaligned pointer
+ * \param[in] alignment the alignment to be applied to `ptr`
+ * \return aligned `ptr`, it is guaranteed to be more than or equal to `ptr` and to be a multiple of `alignment`
+ */
 static inline void *mmm_align_ptr(void *ptr, uint64_t alignment) { return (void *)((uint64_t)(ptr + alignment - 1) & ~(alignment - 1)); }
+/*!
+ * \brief get the aligned size of a memblock structure in `p_pool`
+ * \param[in] p_pool a pointer to the pool from which to get the size of a memblock structure
+ * \return aligned size of a memblock structure in `p_pool`
+ */
 static inline uint64_t mmm_aligned_memblock_size(mmm_pool *p_pool) {
-    return mmm_align_size(sizeof(mmm_memblock) + p_pool->managed_ptrs_per_block * sizeof(void *), p_pool->alignment);
+    return mmm_align_size(sizeof(mmm_memblock) + p_pool->managed_ptrs_per_block * sizeof(void **), p_pool->alignment);
 }
+/*!
+ * \brief get the pointer to the memblock structure of an allocation
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] allocation a pointer to the allocation returned by mmm_pool_alloc or mmm_block_to_ptr
+ * \return a pointer to the memblock structure of `allocation`
+ */
 static inline mmm_memblock *mmm_ptr_to_block(mmm_pool *p_pool, void *ptr) { return (mmm_memblock *)(ptr - mmm_aligned_memblock_size(p_pool)); }
+/*!
+ * \brief get the pointer to the allocation from a pointer to its memblock structure
+ * \param[in] p_pool a pointer to the pool in which the allocation was made
+ * \param[in] p_block a pointer to the memblock structure of an allocation returned by mmm_ptr_to_block
+ * \return a pointer to the allocation corresponding to `p_block`
+ */
 static inline void *mmm_block_to_ptr(mmm_pool *p_pool, mmm_memblock *p_block) { return (void *)(p_block) + mmm_aligned_memblock_size(p_pool); }
 
 #ifdef MMM_IMPLEMENTATION
+
+#include <malloc.h>
+#include <stdlib.h>
+#include <string.h>
 
 MMM_DEF void *mmm_aligned_alloc(uint64_t size, uint64_t alignment) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -289,7 +424,7 @@ MMM_DEF void mmm_pool_free(mmm_pool *p_pool, void *allocation) {
     }
 }
 
-MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, uint64_t new_tag) {
+MMM_DEF void mmm_set_tag(mmm_pool *p_pool, void *allocation, int64_t new_tag) {
     mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
     p_block->tag = new_tag;
 }
@@ -299,18 +434,14 @@ MMM_DEF int64_t mmm_get_tag(mmm_pool *p_pool, void *allocation) {
     return p_block->tag;
 }
 
-MMM_DEF void mmm_add_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr) {
-    mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
-    for (uint64_t i = 0; i < p_pool->managed_ptrs_per_block; i++)
-        if (p_block->managed_ptrs[i] == NULL) {
-            p_block->managed_ptrs[i] = p_ptr;
-            break;
-        }
-}
-
 MMM_DEF void mmm_set_managed_ptr(mmm_pool *p_pool, void *allocation, void **p_ptr, uint64_t idx) {
     mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
     p_block->managed_ptrs[idx] = p_ptr;
+}
+
+MMM_DEF void **mmm_get_managed_ptr(mmm_pool *p_pool, void *allocation, uint64_t idx) {
+    mmm_memblock *p_block = mmm_ptr_to_block(p_pool, allocation);
+    return p_block->managed_ptrs[idx];
 }
 
 #endif /* MMM_IMPLEMENTATION */

@@ -1,5 +1,5 @@
 # mini memory manager
-stb-like header-only memory management library in C is inspired by zone allocator from doom.
+stb-like header-only memory management library in C11 is inspired by zone allocator from doom.
 
 # usage
 if you're using cmake, include this project in your main CMakeLists.txt and link with `mmm` library.
@@ -22,17 +22,20 @@ creating a pool
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 
 int32_t main() {
-    const uint64_t size = 1 * 1024 * 1024; // 1 megabyte
-    // all pointers and block structure pointers would be a multiple of 16, must be a power of 2
-    const uint64_t alignment = 16;
+    const uint64_t size = 1 * 1024 * 1024; // 1 megabyte, must be divisible by alignment
+    // all pointers to memory and to block structures would be a multiple of this number, must be a power of 2
+    // in most cases, you would not need anything more than standard malloc alignment, which is alignof(max_align_t) AKA 16 bytes on 64-bit systems (8 on 32-bit)
+    const uint64_t alignment = alignof(max_align_t);
     // mmm introduces a concept of a managed pointer to deal with growing the pool
     // basically, you can add a pointer to your varible into the block structure
     // then, when growing the pool, the new address of that block's memory would be put into those variables
     const uint32_t max_managed_ptrs = 1;
 
-    // alignment and max_managed_ptrs CAN NOT be changed after the pool is created
+    // alignment and max_managed_ptrs CAN NOT be changed after the pool is created (size can only be changed with grow)
 
     mmm_pool pool;
     mmm_pool_init(size, alignment, max_managed_ptrs, NULL, &pool);
@@ -54,6 +57,8 @@ creating a pool with custom allocators
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 
 int32_t main() {
     mmm_allocation_callbacks alloc_cbs = {};
@@ -65,7 +70,7 @@ int32_t main() {
     mmm_pool pool;
     // alloc_cbs is NOT required to have a lifetime longer than the pool
     // because it is provided as an argument to all functions that need it
-    mmm_pool_init(1 * 1024 * 1024, 16, 1, &alloc_cbs, &pool);
+    mmm_pool_init(1 * 1024 * 1024, alignof(max_align_t), 1, &alloc_cbs, &pool);
 
     if (pool.mem == NULL) return -1;
 
@@ -82,13 +87,15 @@ making a pool in a preallocated buffer
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 #include <stdlib.h>
 
 int32_t main() {
     void *buf = malloc(1 * 1024 * 1024);
     
     mmm_pool pool;
-    mmm_pool_init_preallocated(1 * 1024 * 1024, 16, 1, buf, &pool);
+    mmm_pool_init_preallocated(1 * 1024 * 1024, alignof(max_align_t), 1, buf, &pool);
 
     if (pool.mem == NULL) return -1;
 
@@ -107,11 +114,13 @@ allocating memory from the pool
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 #include <stdio.h>
 
 int32_t main() {
     mmm_pool pool;
-    mmm_pool_init(1 * 1024 * 1024, 16, 1, NULL, &pool);
+    mmm_pool_init(1 * 1024 * 1024, alignof(max_align_t), 1, NULL, &pool);
 
     if (pool.mem == NULL) return -1;
 
@@ -139,10 +148,12 @@ growing the pool
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 
 int32_t main() {
     mmm_pool pool;
-    mmm_pool_init(1 * 1024 * 1024, 16, 1, NULL, &pool);
+    mmm_pool_init(1 * 1024 * 1024, alignof(max_align_t), 1, NULL, &pool);
 
     if (pool.mem == NULL) return -1;
 
@@ -154,10 +165,10 @@ int32_t main() {
     for (uint64_t i = 0; i < 100; i++) printf("%I64u ", p[i]);
     printf("\n");
 
-    // we add a pointer to variable `p` as a managed pointer to the block structure of that allocation
+    // we add a pointer to variable `p` as a managed pointer to the block structure of that allocation at index 0 (must be less than pool.managed_ptrs_per_block)
     // after we grow the pool, all pointers become invalid
     // but managed pointers would have their values updated to new ones by mmm_pool_grow
-    mmm_add_managed_ptr(&pool, p, &p);
+    mmm_set_managed_ptr(&pool, p, &p, 0);
 
     mmm_pool_grow(&pool, 2 * 1024 * 1024, NULL);
 
@@ -182,6 +193,8 @@ purging data
 #include <mmm.h>
 
 #include <inttypes.h>
+#include <stdalign.h>
+#include <stddef.h>
 
 uint32_t purge_decider_func(mmm_memblock *p_block, void *p_user_data) {
     (void)p_user_data;
@@ -192,7 +205,7 @@ uint32_t purge_decider_func(mmm_memblock *p_block, void *p_user_data) {
 
 int32_t main() {
     mmm_pool pool;
-    mmm_pool_init(1 * 1024 * 1024, 16, 1, NULL, &pool);
+    mmm_pool_init(1 * 1024 * 1024, alignof(max_align_t), 1, NULL, &pool);
 
     if (pool.mem == NULL) return -1;
 
