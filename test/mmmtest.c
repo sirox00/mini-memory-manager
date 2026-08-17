@@ -24,7 +24,7 @@ void verify_pool(mmm_pool *p_pool) {
 
     assert(total_block_size < p_pool->size);
 
-    printf("Pool: %I64u blocks, total blocks size %I64u (pool size %I64u)\n", block_count, total_block_size, p_pool->size);
+    printf("Pool: %llu blocks, total blocks size %llu (pool size %llu)\n", block_count, total_block_size, p_pool->size);
 }
 
 uint32_t purge_decider(mmm_memblock *p_block, void *p_user_data) {
@@ -48,13 +48,13 @@ int32_t main() {
     *b = 5;
     *c = 50.0;
 
-    printf("Allocated: a=%I64d, b=%I32d, c=%lf\n", *a, *b, *c);
+    printf("Allocated: a=%lld, b=%d, c=%lf\n", *a, *b, *c);
     verify_pool(&pool);
 
     mmm_set_managed_ptr(&pool, b, (void **)&b, 0);
     mmm_pool_grow(&pool, 128 * 1024, NULL);
 
-    printf("Grew: a=%I64d, b=%I32d, c=%lf\n", *a, *b, *c);
+    printf("Grew: a=%lld, b=%d, c=%lf\n", *a, *b, *c);
     assert(*b == 5);
     verify_pool(&pool);
 
